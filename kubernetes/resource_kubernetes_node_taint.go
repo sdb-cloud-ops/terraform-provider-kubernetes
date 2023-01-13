@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -11,6 +12,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/kubernetes/pkg/apis/core/helper"
 	"k8s.io/kubernetes/pkg/util/taints"
 )
@@ -162,8 +165,21 @@ func resourceKubernetesNodeTaintUpdate(ctx context.Context, d *schema.ResourceDa
 			return diag.Errorf("Node %s already has taint %+v", nodeName, newTaint)
 		}
 	}
-
-	if _, err := nodeApi.Update(ctx, newNode, metav1.UpdateOptions{}); err != nil {
+	// Patch object to prevent conflicts
+	var oldData, newData []byte
+	oldData, err = json.Marshal(node)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	newData, err = json.Marshal(newNode)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	patch, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, newNode)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	if _, err := nodeApi.Patch(ctx, nodeName, types.StrategicMergePatchType, patch, metav1.PatchOptions{}); err != nil {
 		return diag.FromErr(err)
 	}
 	// Don't update id or read if deleting
