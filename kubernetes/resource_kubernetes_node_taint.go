@@ -30,6 +30,9 @@ func resourceKubernetesNodeTaint() *schema.Resource {
 		ReadContext:   resourceKubernetesNodeTaintRead,
 		UpdateContext: resourceKubernetesNodeTaintUpdate,
 		DeleteContext: resourceKubernetesNodeTaintDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 		Schema: map[string]*schema.Schema{
 			"metadata": {
 				Type:     schema.TypeList,
@@ -124,6 +127,11 @@ func resourceKubernetesNodeTaintRead(ctx context.Context, d *schema.ResourceData
 		d.SetId("")
 		return nil
 	}
+	metadata := map[string]interface{}{
+		"name": nodeName,
+	}
+	// Populate the metadata fields so imported resources aren't replaced
+	d.Set("metadata", []interface{}{metadata})
 	d.Set("taint", flattenNodeTaints(idTaint))
 	return nil
 }
